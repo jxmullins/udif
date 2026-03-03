@@ -72,10 +72,28 @@ protect privacy while enabling personalization.
 |-------|------|-------------|
 | alias | string | Pseudonym or display name |
 | public_key | string | Cryptographic public key for verification |
+| public_key_format | string | Format of the public key: `jwk`, `pem`, or `base64` |
 | persona_tags | array | Self-described identity tags |
 | archetype | string | Self-described archetype or role |
-| language | string | Preferred language code |
+| language | string | Preferred language code (BCP 47, e.g. `en-US`) |
 | timezone | string | IANA timezone string |
+
+#### Public Key Format
+
+When `public_key` is provided, `public_key_format` SHOULD also be 
+provided to enable interoperability. Supported formats:
+
+- **`jwk`** — JSON Web Key (RFC 7517). The `public_key` field contains 
+  a JSON-serialized JWK object. This is the RECOMMENDED format for new 
+  implementations because it is self-describing (includes algorithm and 
+  key type metadata).
+- **`pem`** — PEM-encoded public key (RFC 7468). The `public_key` field 
+  contains the PEM string including `-----BEGIN PUBLIC KEY-----` headers.
+- **`base64`** — Raw public key bytes, base64-encoded. When using this 
+  format, the key type and algorithm must be established out of band.
+
+If `public_key_format` is omitted, consumers SHOULD attempt JWK parsing 
+first, then PEM detection, before falling back to raw base64.
 
 ---
 
@@ -99,18 +117,40 @@ Details about the source platform and export format.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| name | string | yes | Platform name |
+| name | string | yes | Platform name (see naming conventions below) |
 | data_format | string | yes | Format of the original export |
 | source_type | string | yes | Type of data source |
 | export_date | datetime | yes | When the data was exported |
 | raw_schema_reference | string | no | URL to the platform's original schema |
 | session_reference_id | string | no | Platform's own session identifier |
 
-Supported platform values: `OpenAI`, `Google`, `Anthropic`, 
-`Perplexity`, `Custom`
+#### Platform Naming Conventions
+
+The `platform.name` field is an open string to avoid requiring schema 
+updates when new platforms emerge. To maintain consistency across 
+implementations, converters SHOULD use the platform's official product 
+name as it appears in the platform's own documentation:
+
+| Platform | Recommended Value |
+|----------|------------------|
+| OpenAI (ChatGPT) | `"OpenAI"` |
+| Google (Gemini) | `"Google"` |
+| Anthropic (Claude) | `"Anthropic"` |
+| Perplexity | `"Perplexity"` |
+| Mistral | `"Mistral"` |
+| xAI (Grok) | `"xAI"` |
+| Meta (Llama-based) | `"Meta"` |
+| Cohere | `"Cohere"` |
+| Local/self-hosted | `"Local"` or the specific runtime name (e.g. `"Ollama"`, `"LM Studio"`, `"vLLM"`) |
+| Custom applications | A descriptive name for the application |
+
+This table is informational, not normative. Any string value is valid.
+
+Supported data formats: `json`, `html`, `markdown`, `zip`, `csv`, 
+`proprietary`
 
 Supported source types: `chat_log`, `file`, `search`, `audio`, 
-`image`, `multimodal`
+`image`, `video`, `code`, `multimodal`
 
 ---
 
@@ -130,13 +170,93 @@ this includes the full message thread.
 | messages | array | no | Individual messages in the interaction |
 | shared_links | array | no | Links shared during the interaction |
 
-**Message object:**
+#### Message Object
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| role | string | yes | `user` or `assistant` |
-| content | string | yes | Message content |
+| role | string | yes | Message role (see below) |
+| content | string or array | yes | Message content (see below) |
 | timestamp | datetime | yes | ISO 8601 timestamp |
+| name | string | no | Identifier for multi-agent scenarios |
+| model | string | no | Model that generated this message (e.g. `gpt-4o`, `claude-sonnet-4-5-20250929`) |
+| tool_call_id | string | no | Correlation ID linking a tool result to its tool call |
+| attachments | array | no | File references associated with this message |
+
+##### Roles
+
+| Role | Description |
+|------|-------------|
+| `user` | Message from the human user |
+| `assistant` | Response from the AI model |
+| `system` | System-level instructions or context (typically not shown to users) |
+| `tool` | Result returned from a tool/function call |
+| `developer` | Developer-provided instructions in API-based interactions |
+
+Implementations encountering roles not in this list SHOULD preserve 
+them as-is rather than mapping them to a known role or discarding them. 
+This ensures lossless round-tripping through platforms that define 
+custom roles.
+
+##### Content
+
+The `content` field supports two forms:
+
+**Simple string** — for plain text messages:
+```json
+{
+  "role": "user",
+  "content": "What does real data portability look like?",
+  "timestamp": "2026-03-01T14:00:00Z"
+}
+```
+
+**Array of content blocks** — for structured or multimodal messages:
+```json
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "Here is the analysis you requested."
+    },
+    {
+      "type": "image",
+      "source": "generated",
+      "media_type": "image/png",
+      "description": "Chart showing data portability adoption over time"
+    }
+  ],
+  "timestamp": "2026-03-01T14:00:03Z"
+}
+```
+
+Defined content block types:
+
+| Type | Required Fields | Optional Fields | Description |
+|------|----------------|-----------------|-------------|
+| `text` | `text` | — | Plain text content |
+| `image` | — | `source`, `media_type`, `url`, `description`, `data` | Image content or reference |
+| `file` | `filename` | `media_type`, `url`, `data` | File attachment |
+| `tool_call` | `tool_name`, `tool_input` | `tool_call_id` | Invocation of a tool/function |
+| `tool_result` | `tool_call_id` | `content`, `is_error` | Result returned from a tool |
+| `code_execution` | `code` | `language`, `output`, `exit_code` | Code that was executed |
+
+Converters SHOULD use the simple string form when the message is 
+plain text only. The array form SHOULD be used when the message 
+contains multiple content types, non-text content, or structured 
+tool interactions.
+
+##### Attachments
+
+The `attachments` array contains references to files associated 
+with a message:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| filename | string | yes | Original filename |
+| media_type | string | no | MIME type |
+| size_bytes | integer | no | File size |
+| url | string | no | URL or path to the file |
 
 ---
 
