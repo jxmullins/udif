@@ -9,7 +9,7 @@
     "udif": {
       "type": "string",
       "description": "UDIF specification version",
-      "enum": ["2.0"]
+      "const": "2.0"
     },
     "meta": {
       "type": "object",
@@ -33,12 +33,20 @@
       "properties": {
         "alias": { "type": "string" },
         "public_key": { "type": "string" },
+        "public_key_format": {
+          "type": "string",
+          "enum": ["jwk", "pem", "base64"],
+          "description": "Format of the public_key field. JWK (RFC 7517) is recommended for interoperability."
+        },
         "persona_tags": {
           "type": "array",
           "items": { "type": "string" }
         },
         "archetype": { "type": "string" },
-        "language": { "type": "string" },
+        "language": { 
+          "type": "string",
+          "description": "BCP 47 language tag (e.g. en-US)"
+        },
         "timezone": { "type": "string" }
       }
     },
@@ -80,8 +88,8 @@
       "type": "object",
       "properties": {
         "name": { 
-          "type": "string", 
-          "enum": ["OpenAI", "Google", "Anthropic", "Perplexity", "Custom"] 
+          "type": "string",
+          "description": "Platform name. Use the platform's official product name as it appears in their documentation (e.g. 'OpenAI', 'Anthropic', 'Google', 'Mistral', 'Ollama'). Any string value is valid."
         },
         "data_format": { 
           "type": "string", 
@@ -89,7 +97,7 @@
         },
         "source_type": { 
           "type": "string", 
-          "enum": ["chat_log", "file", "search", "audio", "image", "multimodal"] 
+          "enum": ["chat_log", "file", "search", "audio", "image", "video", "code", "multimodal"] 
         },
         "raw_schema_reference": { "type": "string" },
         "export_date": { "type": "string", "format": "date-time" },
@@ -121,10 +129,117 @@
             "properties": {
               "role": { 
                 "type": "string", 
-                "enum": ["user", "assistant"] 
+                "enum": ["user", "assistant", "system", "tool", "developer"]
               },
-              "content": { "type": "string" },
-              "timestamp": { "type": "string", "format": "date-time" }
+              "content": {
+                "oneOf": [
+                  { 
+                    "type": "string",
+                    "description": "Plain text message content"
+                  },
+                  {
+                    "type": "array",
+                    "description": "Structured content blocks for multimodal or tool-use messages",
+                    "items": {
+                      "type": "object",
+                      "required": ["type"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": ["text", "image", "file", "tool_call", "tool_result", "code_execution"]
+                        },
+                        "text": { 
+                          "type": "string",
+                          "description": "Text content (for type: text)"
+                        },
+                        "source": { 
+                          "type": "string",
+                          "description": "Content origin: 'generated', 'uploaded', 'url' (for type: image, file)"
+                        },
+                        "media_type": { 
+                          "type": "string",
+                          "description": "MIME type (for type: image, file)"
+                        },
+                        "url": { 
+                          "type": "string",
+                          "description": "URL or path to external content (for type: image, file)"
+                        },
+                        "data": { 
+                          "type": "string",
+                          "description": "Base64-encoded inline content (for type: image, file)"
+                        },
+                        "description": { 
+                          "type": "string",
+                          "description": "Human-readable description (for type: image)"
+                        },
+                        "filename": { 
+                          "type": "string",
+                          "description": "Original filename (for type: file)"
+                        },
+                        "tool_name": { 
+                          "type": "string",
+                          "description": "Name of the tool invoked (for type: tool_call)"
+                        },
+                        "tool_input": { 
+                          "type": "object",
+                          "description": "Parameters passed to the tool (for type: tool_call)"
+                        },
+                        "tool_call_id": { 
+                          "type": "string",
+                          "description": "Correlation ID (for type: tool_call, tool_result)"
+                        },
+                        "is_error": { 
+                          "type": "boolean",
+                          "description": "Whether the tool result is an error (for type: tool_result)"
+                        },
+                        "code": { 
+                          "type": "string",
+                          "description": "Source code (for type: code_execution)"
+                        },
+                        "language": { 
+                          "type": "string",
+                          "description": "Programming language (for type: code_execution)"
+                        },
+                        "output": { 
+                          "type": "string",
+                          "description": "Execution output (for type: code_execution)"
+                        },
+                        "exit_code": { 
+                          "type": "integer",
+                          "description": "Process exit code (for type: code_execution)"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "name": {
+                "type": "string",
+                "description": "Identifier for the message author in multi-agent scenarios"
+              },
+              "model": {
+                "type": "string",
+                "description": "Model that generated this message (e.g. 'gpt-4o', 'claude-sonnet-4-5-20250929')"
+              },
+              "tool_call_id": {
+                "type": "string",
+                "description": "Correlation ID linking a tool result to the tool_call that triggered it"
+              },
+              "attachments": {
+                "type": "array",
+                "description": "Files associated with this message",
+                "items": {
+                  "type": "object",
+                  "required": ["filename"],
+                  "properties": {
+                    "filename": { "type": "string" },
+                    "media_type": { "type": "string" },
+                    "size_bytes": { "type": "integer" },
+                    "url": { "type": "string" }
+                  }
+                }
+              }
             },
             "required": ["role", "content", "timestamp"]
           }
