@@ -1,0 +1,133 @@
+{
+  "udif": "2.0",
+  "meta": {
+    "source": "Anthropic",
+    "generator": "claude-sonnet-4-5-20250929",
+    "session_id": "sess_anthropic_multimodal_001",
+    "timestamp": "2026-03-02T10:30:00Z",
+    "user_id": "user_example_002",
+    "consent_granted": true,
+    "consent_type": "explicit",
+    "data_type": "chat_history"
+  },
+  "identity": {
+    "alias": "dev-user",
+    "public_key": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"example_x_coordinate\",\"y\":\"example_y_coordinate\"}",
+    "public_key_format": "jwk",
+    "persona_tags": ["developer", "data-sovereignty"],
+    "language": "en-US",
+    "timezone": "America/Chicago"
+  },
+  "platform": {
+    "name": "Anthropic",
+    "data_format": "json",
+    "source_type": "multimodal",
+    "export_date": "2026-03-02T12:00:00Z",
+    "session_reference_id": "conv_example_002"
+  },
+  "data_event": {
+    "type": "chat_interaction",
+    "service": "Claude",
+    "tags": ["code-generation", "tool-use", "multimodal"],
+    "content_title": "Data analysis with tool use and code execution",
+    "duration": 320,
+    "value_perceived": 8,
+    "is_shareable": false,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful data analysis assistant with access to code execution tools.",
+        "timestamp": "2026-03-02T10:30:00Z"
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Analyze the sales data in this spreadsheet and create a chart."
+          },
+          {
+            "type": "file",
+            "filename": "q4-sales.csv",
+            "media_type": "text/csv",
+            "source": "uploaded"
+          }
+        ],
+        "timestamp": "2026-03-02T10:30:15Z",
+        "attachments": [
+          {
+            "filename": "q4-sales.csv",
+            "media_type": "text/csv",
+            "size_bytes": 24680
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "I'll analyze the sales data and create a visualization."
+          },
+          {
+            "type": "tool_call",
+            "tool_name": "code_execution",
+            "tool_call_id": "exec_001",
+            "tool_input": {
+              "language": "python",
+              "code": "import pandas as pd\ndf = pd.read_csv('q4-sales.csv')\nprint(df.describe())"
+            }
+          }
+        ],
+        "timestamp": "2026-03-02T10:30:18Z",
+        "model": "claude-sonnet-4-5-20250929"
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_call_id": "exec_001",
+            "content": "       revenue    units\ncount   120.00   120.00\nmean   8450.25   342.50\nstd    2150.75    98.30\nmin    3200.00   150.00\nmax   15800.00   620.00"
+          }
+        ],
+        "timestamp": "2026-03-02T10:30:20Z",
+        "tool_call_id": "exec_001"
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "The Q4 sales data covers 120 records. Revenue averaged $8,450 per entry with significant variance. Here's the trend chart:"
+          },
+          {
+            "type": "image",
+            "source": "generated",
+            "media_type": "image/png",
+            "description": "Line chart showing Q4 revenue trend by week with moving average overlay"
+          }
+        ],
+        "timestamp": "2026-03-02T10:30:25Z",
+        "model": "claude-sonnet-4-5-20250929"
+      }
+    ]
+  },
+  "values": {
+    "data_use_permissions": ["self-analytics", "personal AI context"],
+    "sharing_boundaries": ["only on explicit consent"],
+    "core_values": ["sovereignty", "transparency"]
+  },
+  "provenance": {
+    "created_at": "2026-03-02T12:00:00Z",
+    "source": "Anthropic",
+    "hash": "placeholder-sha256-hash-of-data-event",
+    "chain": [
+      {
+        "platform": "Anthropic",
+        "exported_at": "2026-03-02T12:00:00Z",
+        "hash": "placeholder-export-hash"
+      }
+    ]
+  }
+}
